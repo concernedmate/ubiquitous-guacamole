@@ -2,6 +2,7 @@ const std = @import("std");
 const fizzbuzz = @import("fun/fizzbuzz.zig");
 const fibonacci = @import("fun/fibonacci.zig");
 const pyramid = @import("fun/pyramid.zig");
+const reader = @import("fun/reader.zig");
 
 pub fn main() void {
     std.debug.print("Hello world!\n", .{});
@@ -30,4 +31,6 @@ pub fn main() void {
         std.debug.print("\x1B[2J\x1B[H", .{}); //clear console
         i += 1;
     }
+
+    reader.print_read() catch {};
 }

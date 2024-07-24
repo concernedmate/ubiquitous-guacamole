@@ -31,8 +31,10 @@ pub const Render = struct {
     }
 
     pub fn process(self: *Render, deltaMS: u64) u64 {
-        std.time.sleep(deltaMS * std.time.ms_per_s);
-        self.timer += deltaMS * std.time.ms_per_s;
+        if (deltaMS < 4) {
+            std.time.sleep((4 - deltaMS) * std.time.ns_per_ms);
+            self.timer += (4 - deltaMS);
+        }
         const start = std.time.milliTimestamp();
         var array: [WIDTH]u8 = undefined;
         std.debug.print("\x1B[2J\x1B[H", .{}); //clear console
@@ -48,13 +50,13 @@ pub const Render = struct {
             std.debug.print("{s}\n", .{array});
         }
         const time = @as(u64, @intCast(std.time.milliTimestamp() - start));
-        std.debug.print("Delay(s): {d}ms\n", .{time});
+        std.debug.print("Delay(s): {d}ms, timer: {d}ms\n", .{ time, self.timer });
         self.clear();
         return time;
     }
 
     pub fn addTick(self: *Render) void {
-        if (self.timer >= std.time.ns_per_ms / 50) {
+        if (self.timer >= std.time.ms_per_s * 0.02) {
             self.tick += 1;
             self.timer = 0;
         }
@@ -85,14 +87,14 @@ pub const Object = struct {
     }
 
     pub fn moveLeft(self: *Object) error{OutOfDisplay}!void {
-        if (self.x_pos - 1 < 0) {
+        if (self.x_pos <= 0) {
             return error.OutOfDisplay;
         }
         self.x_pos -= 1;
     }
 
     pub fn moveUp(self: *Object) error{OutOfDisplay}!void {
-        if (self.y_pos - 1 < 0) {
+        if (self.y_pos <= 0) {
             return error.OutOfDisplay;
         }
         self.y_pos -= 1;

@@ -1,5 +1,6 @@
 const std = @import("std");
 const Game = @import("game.zig");
+const Control = @import("control.zig");
 
 pub fn main() void {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
@@ -17,12 +18,38 @@ pub fn main() void {
 
     var lastBulletTick: u64 = 0;
     var lastTick: u64 = 0;
+    // const stdin = std.io.getStdIn();
     while (true) {
         Renderer.addTick();
-        if (@rem(Renderer.tick, 10) == 0 and Renderer.tick != lastBulletTick) {
-            const PlayerBullet = Game.Object.init(Game.ObjectTypes.PLAYER_BULLET, 1, 8, '=');
+
+        // var buffer: [1]u8 = Control.fileBasedControlsKEKW() catch {};
+        // var buffered_reader = std.io.bufferedReader(stdin.reader());
+        // _ = buffered_reader.read(&buffer) catch {};
+
+        if (@rem(Renderer.tick, 5) == 0 and Renderer.tick != lastTick) {
+            const PlayerBullet = Game.Object.init(Game.ObjectTypes.PLAYER_BULLET, GameObjects.items[0].x_pos + 1, GameObjects.items[0].y_pos, '=');
             GameObjects.append(PlayerBullet) catch {};
             lastBulletTick = Renderer.tick;
+        }
+        if (@rem(Renderer.tick, 10) == 0 and Renderer.tick != lastTick) {
+            const input: u8 = Control.fileBasedControlsKEKW() catch 'o';
+            switch (input) {
+                @as(u8, 'w') => {
+                    GameObjects.items[0].moveUp() catch {};
+                },
+                @as(u8, 's') => {
+                    GameObjects.items[0].moveDown() catch {};
+                },
+                @as(u8, 'd') => {
+                    GameObjects.items[0].moveRight() catch {};
+                },
+                @as(u8, 'a') => {
+                    GameObjects.items[0].moveLeft() catch {};
+                },
+                else => {
+                    std.debug.print("Pressed {c}", .{input});
+                },
+            }
         }
         for (GameObjects.items, 0..) |item, idx| {
             if (Renderer.tick != lastTick) {
