@@ -1,22 +1,113 @@
 <!DOCTYPE html>
-<canvas id="canvas" width="1000" height="1000"></canvas>
+<canvas id="canvas"></canvas>
 <br>
 <label for="image">Pilih Gambar</label>
 <br>
 <input id="image" type="file" onchange="selectImage(event)" />
 <br>
-<input id="threshold" type="number" onchange="changeThreshold(event)" />
+<input id="threshold" type="number" onchange="changeThreshold(event)" value="250" />
 
+<script>
+    /**
+     * 
+     * @param {{x: number, y: number}} curr 
+     * @param {{x: number, y: number}} end 
+     * @param {{x: number, y: number}[]} path
+     * @returns {1 | 0}
+     */
+    let oldPath = []
+    const pathfinding = (curr, start, end, path = [], arr_map = [], idx_difference = 1) => {
+        if (path.length == 0) { oldPath = [] }
+        path.push(curr)
+        oldPath.push(curr)
+        if (curr.x == end.x && curr.y == end.y) {
+            return path.slice()
+        }
+        if (curr.y > arr_map.length - 1) {
+            return null
+        }
+        if (arr_map[curr.y] == undefined || curr.x > arr_map[curr.y].length - 1) {
+            return null
+        }
+        if (arr_map[curr.y][curr.x] == '=') {
+            return null
+        }
 
+        /**
+         * @type {{x: number, y: number, cost: number}[]}
+         */
+        const possibleMoves = []
+        if (oldPath.find((val) => { return val.x == curr.x + idx_difference && val.y == curr.y }) == undefined) {
+            possibleMoves.push({ x: curr.x + idx_difference, y: curr.y, cost: calculateCost({ x: curr.x + idx_difference, y: curr.y }, start, end) })
+        }
+        if (oldPath.find((val) => { return val.x == curr.x - idx_difference && val.y == curr.y }) == undefined) {
+            possibleMoves.push({ x: curr.x - idx_difference, y: curr.y, cost: calculateCost({ x: curr.x - idx_difference, y: curr.y }, start, end) })
+        }
+        if (oldPath.find((val) => { return val.x == curr.x && val.y == curr.y + idx_difference }) == undefined) {
+            possibleMoves.push({ x: curr.x, y: curr.y + idx_difference, cost: calculateCost({ x: curr.x, y: curr.y + idx_difference }, start, end) })
+        }
+        if (oldPath.find((val) => { return val.x == curr.x && val.y == curr.y - idx_difference }) == undefined) {
+            possibleMoves.push({ x: curr.x, y: curr.y - idx_difference, cost: calculateCost({ x: curr.x, y: curr.y - idx_difference }, start, end) })
+        }
+
+        possibleMoves.sort((a, b) => { return a.cost - b.cost })
+        for (let i = 0; i < possibleMoves.length; i++) {
+            // let result
+            let result = pathfinding({ x: possibleMoves[i].x, y: possibleMoves[i].y }, start, end, path.slice(), arr_map.slice(), idx_difference)
+            if (result != null) {
+                return result
+            }
+        }
+        return null
+    }
+
+    /**
+     * 
+     * @param {{x: number, y: number}} curr 
+     * @param {{x: number, y: number}} start 
+     * @param {{x: number, y: number}} end 
+     * @returns {number}
+     */
+    const calculateCost = (curr, start, end) => {
+        const distance = Math.abs(curr.x - start.x) + Math.abs(curr.y - start.y)
+        const heuristic = ((curr.x - end.x) * (curr.x - end.x)) + ((curr.y - end.y) * (curr.y - end.y)) // simple distance
+        return distance + heuristic
+    }
+
+    /**
+     * 
+     * @param {{x: number, y:number}[]} path 
+     */
+    const trimPath = (path, idx_difference = 1) => {
+        if (path == undefined) { return [] }
+        const trimmed = []
+        let i = 0
+        while (i < path.length) {
+            let available = []
+            available.push(i)
+            available.push(path.findIndex((val) => { return val.x == path[i].x + idx_difference && val.y == path[i].y }, i))
+            available.push(path.findIndex((val) => { return val.x == path[i].x - idx_difference && val.y == path[i].y }, i))
+            available.push(path.findIndex((val) => { return val.x == path[i].x && val.y == path[i].y + idx_difference }, i))
+            available.push(path.findIndex((val) => { return val.x == path[i].x && val.y == path[i].y - idx_difference }, i))
+            available.sort((a, b) => { return b - a })
+            trimmed.push(path[available[0]])
+            if (i != available[0]) {
+                i = available[0]
+            } else {
+                i++
+            }
+        }
+        return trimmed
+    }
+</script>
 <script>
     let canvas = document.getElementById("canvas")
     let ctx = canvas.getContext("2d")
     let image = null
-    let threshold = 120
+    let threshold = 250
 
     const changeThreshold = (event) => {
         threshold = parseInt(event.target.value)
-        console.log(threshold)
     }
 
     const getColorIndicesForCoord = (x, y, width) => {
@@ -32,22 +123,27 @@
 
         await new Promise((resolve, reject) => {
             img.onload = function () {
-                ctx.drawImage(img, 0, 0, 1000, 1000)
-                imgData = ctx.getImageData(0, 0, 1000, 1000).data
+                canvas.width = img.width
+                canvas.height = img.height
+                ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
+                imgData = ctx.getImageData(0, 0, canvas.width, canvas.height).data
                 URL.revokeObjectURL(img.src)
                 resolve()
             }
         })
 
-        const arr = []
-        let map = ""
-        for (let y = 0; y < 1000; y += 15) {
-            for (let x = 0; x < 1000; x += 15) {
+        const arrMap = []
+        arrMap.push([])
+        const availableBlock = []
+        const points = []
+
+        for (let y = 0; y < canvas.height; y += 15) {
+            for (let x = 0; x < canvas.width; x += 15) {
                 let ravg = 0
                 let gavg = 0
                 let bavg = 0
-                for (let i = 0; i < 10; i++) {
-                    let [ridx, gidx, bidx, alpha] = getColorIndicesForCoord(x, y, 1000)
+                for (let i = 0; i < 15; i++) {
+                    let [ridx, gidx, bidx, alpha] = getColorIndicesForCoord(x, y, canvas.width)
                     ravg += imgData[ridx]
                     gavg += imgData[gidx]
                     bavg += imgData[bidx]
@@ -57,56 +153,101 @@
                 gavg = gavg / 15
 
                 if (ravg < threshold && gavg < threshold && bavg < threshold) {
-                    map += "="
+                    if (arrMap[y] == undefined) { arrMap[y] = [] }
+                    arrMap[y][x] = "="
                 } else {
-                    map += "_"
+                    if (arrMap[y] == undefined) { arrMap[y] = [] }
+                    arrMap[y][x] = "_"
+                    availableBlock.push({ x, y })
                 }
             }
-            map += "\n"
         }
 
-        let pnjg = 0
-        for (let i = 0; i < map.length; i++) {
-            if (map[i] == "\n") {
-                pnjg++;
+        for (let y = 0; y < canvas.height; y += 5) {
+            for (let x = 0; x < canvas.width; x += 5) {
+                let ravg = 0
+                let gavg = 0
+                let bavg = 0
+                for (let i = 0; i < 5; i++) {
+                    let [ridx, gidx, bidx, alpha] = getColorIndicesForCoord(x, y, canvas.width)
+                    ravg += imgData[ridx]
+                    gavg += imgData[gidx]
+                    bavg += imgData[bidx]
+                }
+                ravg = ravg / 5
+                bavg = bavg / 5
+                gavg = gavg / 5
+
+                if ((ravg > 240 && ravg < 255) && (gavg > 180 && gavg < 185) && (bavg > 20 && bavg < 30)) {
+                    points.push({ x, y })
+                }
             }
         }
-        console.log(map)
 
-        // cleanup single walls
-        for (let i = 0; i < map.length; i++) {
-            let max = 0
-            let check = 0;
-            if (i + 1 < map.length) {
-                if (map[i + 1] == '=') {
-                    check++
-                }
-                max++
-            }
-            if (i - 1 < map.length) {
-                if (map[i - 1] == '=') {
-                    check++
-                }
-                max++
 
-            }
-            if (i + (pnjg + 1) < map.length) {
-                if (map[i + (pnjg + 1)] == '=') {
-                    check++
-                }
-                max++
-            }
-            if (i - (pnjg + 1) < map.length) {
-                if (map[i - (pnjg + 1)] == '=') {
-                    check++
-                }
-                max++
-            }
+        // const randS = availableBlock[Math.floor(Math.random() * availableBlock.length)];
+        // const randE = availableBlock[Math.floor(Math.random() * availableBlock.length)];
 
-            if (check < 2) {
-                map[i] = '*'
+        // let start = { x: randS.x, y: randS.y }
+        // let end = { x: randE.x, y: randE.y }
+
+        console.log(arrMap, availableBlock)
+        console.log("points: ", points)
+
+        // transform points
+        const minimizedPoints = []
+        for (let i = 0; i < points.length; i++) {
+            let minDist = null
+            const pointXY = { x: points[i].x, y: points[i].y }
+            for (let j = 0; j < availableBlock.length; j++) {
+                const dist = Math.abs(availableBlock[j].x - pointXY.x) + Math.abs(availableBlock[j].y - pointXY.y)
+                if (minDist == null || dist < minDist) {
+                    minDist = dist
+                    points[i] = availableBlock[j]
+                }
+            }
+            if (minimizedPoints.find((val) => { return val.x == points[i].x && val.y == points[i].y }) == undefined) {
+                minimizedPoints.push(points[i])
             }
         }
-        console.log(map)
+
+        console.log("minPoints: ", minimizedPoints)
+
+        let start = minimizedPoints[Math.floor(Math.random() * minimizedPoints.length)]
+        let end = minimizedPoints[Math.floor(Math.random() * minimizedPoints.length)]
+
+        if (start != null && end != null) {
+            try {
+                // draw start and end
+                ctx.fillStyle = "orange";
+                ctx.fillRect(start.x, start.y, 10, 10);
+                ctx.fillRect(end.x, end.y, 10, 10);
+
+                console.log("start pathfinding...")
+                let found = pathfinding(start, start, end, [], arrMap, 15)
+                console.log("path: ", found)
+                let trimmed = trimPath(found, 15)
+                console.log("trimmed: ", trimmed)
+
+                if (found == null) {
+                    throw new Error("No path available")
+                }
+
+                // draw path
+                ctx.beginPath()
+                ctx.moveTo(start.x, start.y);
+                for (let i = 0; i < trimmed.length; i += 3) {
+                    if (i + 3 < trimmed.length) {
+                        ctx.bezierCurveTo(trimmed[i].x, trimmed[i].y, trimmed[i + 1].x, trimmed[i + 1].y, trimmed[i + 2].x, trimmed[i + 2].y)
+                    }
+                }
+                ctx.bezierCurveTo(trimmed[trimmed.length - 2].x, trimmed[trimmed.length - 2].y, trimmed[trimmed.length - 1].x, trimmed[trimmed.length - 1].y, end.x, end.y)
+                ctx.lineWidth = 5;
+                ctx.strokeStyle = "#019991";
+                ctx.stroke();
+            } catch (error) {
+                console.log(error)
+            }
+        }
     }
 </script>

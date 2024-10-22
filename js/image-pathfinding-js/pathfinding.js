@@ -90,27 +90,46 @@ for (let y = 0; y < arr.length; y++) {
 }
 
 // pathfinding algorithm
+const convTextArr = (map) => {
+    const arr = []
+    arr.push([])
+
+    let idx = 0
+    for (let i = 0; i < map.length; i++) {
+        if (map[i] == '\n') {
+            arr.push([])
+            idx++
+        } else {
+            arr[idx].push(map[i])
+        }
+    }
+    return arr;
+}
+
+
+let oldPath = []
 /**
  * 
  * @param {{x: number, y: number}} curr 
  * @param {{x: number, y: number}} end 
  * @param {{x: number, y: number}[]} path
+ * @param {number[][]} arr_map
+ * @param {number} idx_difference
  * @returns {1 | 0}
  */
-const oldPath = []
-const pathfinding = (curr, start, end, path = []) => {
+const pathfinding = (curr, start, end, path, arr_map, idx_difference) => {
     path.push(curr)
     oldPath.push(curr)
     if (curr.x == end.x && curr.y == end.y) {
         return path.slice()
     }
-    if (curr.y > arr.length - 1) {
+    if (curr.y > arr_map.length - 1) {
         return null
     }
-    if (arr[curr.y] == undefined || curr.x > arr[curr.y].length - 1) {
+    if (arr_map[curr.y] == undefined || curr.x > arr_map[curr.y].length - 1) {
         return null
     }
-    if (arr[curr.y][curr.x] == '=') {
+    if (arr_map[curr.y][curr.x] == '=') {
         return null
     }
 
@@ -119,23 +138,24 @@ const pathfinding = (curr, start, end, path = []) => {
      */
     const possibleMoves = []
 
-    if (oldPath.find((val) => { return val.x == curr.x + 1 && val.y == curr.y }) == undefined) {
-        possibleMoves.push({ x: curr.x + 1, y: curr.y, cost: calculateCost({ x: curr.x + 1, y: curr.y }, start, end) })
+    if (oldPath.find((val) => { return val.x == curr.x + idx_difference && val.y == curr.y }) == undefined) {
+        possibleMoves.push({ x: curr.x + idx_difference, y: curr.y, cost: calculateCost({ x: curr.x + idx_difference, y: curr.y }, start, end) })
     }
-    if (oldPath.find((val) => { return val.x == curr.x - 1 && val.y == curr.y }) == undefined) {
-        possibleMoves.push({ x: curr.x - 1, y: curr.y, cost: calculateCost({ x: curr.x - 1, y: curr.y }, start, end) })
+    if (oldPath.find((val) => { return val.x == curr.x - idx_difference && val.y == curr.y }) == undefined) {
+        possibleMoves.push({ x: curr.x - idx_difference, y: curr.y, cost: calculateCost({ x: curr.x - idx_difference, y: curr.y }, start, end) })
     }
-    if (oldPath.find((val) => { return val.x == curr.x && val.y == curr.y + 1 }) == undefined) {
-        possibleMoves.push({ x: curr.x, y: curr.y + 1, cost: calculateCost({ x: curr.x, y: curr.y + 1 }, start, end) })
+    if (oldPath.find((val) => { return val.x == curr.x && val.y == curr.y + idx_difference }) == undefined) {
+        possibleMoves.push({ x: curr.x, y: curr.y + idx_difference, cost: calculateCost({ x: curr.x, y: curr.y + idx_difference }, start, end) })
     }
-    if (oldPath.find((val) => { return val.x == curr.x && val.y == curr.y - 1 }) == undefined) {
-        possibleMoves.push({ x: curr.x, y: curr.y - 1, cost: calculateCost({ x: curr.x, y: curr.y - 1 }, start, end) })
+    if (oldPath.find((val) => { return val.x == curr.x && val.y == curr.y - idx_difference }) == undefined) {
+        possibleMoves.push({ x: curr.x, y: curr.y - idx_difference, cost: calculateCost({ x: curr.x, y: curr.y - idx_difference }, start, end) })
     }
 
     possibleMoves.sort((a, b) => { return a.cost - b.cost })
     for (let i = 0; i < possibleMoves.length; i++) {
-        let result = pathfinding({ x: possibleMoves[i].x, y: possibleMoves[i].y }, start, end, path.slice())
+        let result = pathfinding({ x: possibleMoves[i].x, y: possibleMoves[i].y }, start, end, path.slice(), arr_map, idx_difference)
         if (result != null) {
+            oldPath = []
             return result
         }
     }
@@ -158,18 +178,19 @@ const calculateCost = (curr, start, end) => {
 /**
  * 
  * @param {{x: number, y:number}[]} path 
+ * @param {number} idx_difference 
  */
-const trimPath = (path) => {
+const trimPath = (path, idx_difference = 1) => {
     if (path == undefined) { return [] }
     const trimmed = []
     let i = 0
     while (i < path.length) {
         let available = []
         available.push(i)
-        available.push(path.findIndex((val) => { return val.x == path[i].x + 1 && val.y == path[i].y }, i))
-        available.push(path.findIndex((val) => { return val.x == path[i].x - 1 && val.y == path[i].y }, i))
-        available.push(path.findIndex((val) => { return val.x == path[i].x && val.y == path[i].y + 1 }, i))
-        available.push(path.findIndex((val) => { return val.x == path[i].x && val.y == path[i].y - 1 }, i))
+        available.push(path.findIndex((val) => { return val.x == path[i].x + idx_difference && val.y == path[i].y }, i))
+        available.push(path.findIndex((val) => { return val.x == path[i].x - idx_difference && val.y == path[i].y }, i))
+        available.push(path.findIndex((val) => { return val.x == path[i].x && val.y == path[i].y + idx_difference }, i))
+        available.push(path.findIndex((val) => { return val.x == path[i].x && val.y == path[i].y - idx_difference }, i))
         available.sort((a, b) => { return b - a })
         trimmed.push(path[available[0]])
         if (i != available[0]) {
@@ -207,10 +228,10 @@ for (let y = 0; y < arr.length; y++) {
         str += arr[y][x]
     }
 }
-let found
 if (start.x != end.x || start.y != end.y) {
+    let found
     try {
-        found = pathfinding(start, start, end, [])
+        found = pathfinding(start, start, end, [], arr, 1)
         let trimmed = trimPath(found)
         console.log("trimmed: ")
         for (let y = 0; y < arr.length; y++) {
