@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<canvas id="canvas" width="1000" height="1000"></canvas>
+<br>
+<label for="image">Pilih Gambar</label>
+<br>
+<input id="image" type="file" onchange="selectImage(event)" />
+<br>
+<input id="threshold" type="number" onchange="changeThreshold(event)" />
+
+
+<script>
+    let canvas = document.getElementById("canvas")
+    let ctx = canvas.getContext("2d")
+    let image = null
+    let threshold = 120
+
+    const changeThreshold = (event) => {
+        threshold = parseInt(event.target.value)
+        console.log(threshold)
+    }
+
+    const getColorIndicesForCoord = (x, y, width) => {
+        const red = y * (width * 4) + x * 4;
+        return [red, red + 1, red + 2, red + 3];
+    };
+
+    const selectImage = async (event) => {
+        let img = new Image()
+        let imgData = null
+
+        img.src = URL.createObjectURL(event.target.files[0])
+
+        await new Promise((resolve, reject) => {
+            img.onload = function () {
+                ctx.drawImage(img, 0, 0, 1000, 1000)
+                imgData = ctx.getImageData(0, 0, 1000, 1000).data
+                URL.revokeObjectURL(img.src)
+                resolve()
+            }
+        })
+
+        const arr = []
+        let map = ""
+        for (let y = 0; y < 1000; y += 15) {
+            for (let x = 0; x < 1000; x += 15) {
+                let ravg = 0
+                let gavg = 0
+                let bavg = 0
+                for (let i = 0; i < 10; i++) {
+                    let [ridx, gidx, bidx, alpha] = getColorIndicesForCoord(x, y, 1000)
+                    ravg += imgData[ridx]
+                    gavg += imgData[gidx]
+                    bavg += imgData[bidx]
+                }
+                ravg = ravg / 15
+                bavg = bavg / 15
+                gavg = gavg / 15
+
+                if (ravg < threshold && gavg < threshold && bavg < threshold) {
+                    map += "="
+                } else {
+                    map += "_"
+                }
+            }
+            map += "\n"
+        }
+
+        let pnjg = 0
+        for (let i = 0; i < map.length; i++) {
+            if (map[i] == "\n") {
+                pnjg++;
+            }
+        }
+        console.log(map)
+
+        // cleanup single walls
+        for (let i = 0; i < map.length; i++) {
+            let max = 0
+            let check = 0;
+            if (i + 1 < map.length) {
+                if (map[i + 1] == '=') {
+                    check++
+                }
+                max++
+            }
+            if (i - 1 < map.length) {
+                if (map[i - 1] == '=') {
+                    check++
+                }
+                max++
+
+            }
+            if (i + (pnjg + 1) < map.length) {
+                if (map[i + (pnjg + 1)] == '=') {
+                    check++
+                }
+                max++
+            }
+            if (i - (pnjg + 1) < map.length) {
+                if (map[i - (pnjg + 1)] == '=') {
+                    check++
+                }
+                max++
+            }
+
+            if (check < 2) {
+                map[i] = '*'
+            }
+        }
+        console.log(map)
+    }
+</script>
